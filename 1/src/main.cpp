@@ -74,8 +74,11 @@ void NMS(Mat& in, Mat& out, Mat& angles)
 
 int main(int argc, char** argv)
 {
-    // LOAD IMAGES
-    std::string image_path = samples::findFile(argv[1]);
+    // LOAD IMAGE
+    cv::CommandLineParser parser(argc, argv, "{@input |../data/motor.png|input image}");
+    String imageName = parser.get<String>("@input");
+    std::string image_path
+        = samples::findFile(imageName);
     Mat img = imread(image_path, 0);
     if (img.empty()) {
         std::cout << "Could not read the image: " << image_path << std::endl;
