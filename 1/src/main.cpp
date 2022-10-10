@@ -48,9 +48,7 @@ void NMS(Mat& in, Mat& out, Mat& angles)
     for (int i = 2; i < in.rows - 1; i++) {
         for (int j = 2; j < in.cols - 1; j++) {
             if (angles.at<float>(i, j) >= -22.5 && angles.at<float>(i, j) <= 22.5) {
-
-                if ((in.at<float>(i, j) >= in.at<float>(i, j + 1))
-                    && (in.at<float>(i, j) >= in.at<float>(i, j - 1)))
+                if ((in.at<float>(i, j) >= in.at<float>(i, j + 1)) && (in.at<float>(i, j) >= in.at<float>(i, j - 1)))
                     out.at<float>(i, j) = in.at<float>(i, j);
             }
             else if (angles.at<float>(i, j) >= 22.5 && angles.at<float>(i, j) <= 67.5) {
