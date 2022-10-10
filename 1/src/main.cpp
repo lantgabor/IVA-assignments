@@ -3,41 +3,80 @@
 #include <opencv2/highgui.hpp>
 #include <opencv2/opencv.hpp>
 #include <iostream>
+#include <string>
+
+#include "helper.h"
 using namespace cv;
 
-Mat convolve(Mat X, Mat Y)
+void filterPrewitt(Mat& in, Mat& magnitude, Mat& theta, Mat& Kx, Mat& Ky)
 {
-    int H = floor((Y.rows - 1) / 2);
-    int W = floor((Y.cols - 1) / 2);
+    const auto W = in.cols;
+    const auto H = in.rows;
 
-    Mat out = Mat::zeros(X.rows, X.cols, CV_32F);
+    const auto W_kern = Kx.cols / 2;
+    const auto H_kern = Kx.rows / 2;
 
     // over the input image
-    for (int i = H; i < X.rows - H; i++) {
-        for (int j = W; j < X.cols - W; j++) {
+    for (int i = H_kern; i < H - H_kern; i++) {
+        for (int j = W_kern; j < W - W_kern; j++) {
 
             // over the filter
-            float sum = 0;
+            float magX = 0;
+            float magY = 0;
 
-            for (int k = -H; k < H + 1; k++) {
-                for (int l = -W; l < W + 1; l++) {
-                    float a = X.at<float>(i + k, j + l);
-                    float b = Y.at<float>(H + k, W + l);
-                    sum += (a * b);
+            for (int k = -H_kern; k <= H_kern; k++) {
+                for (int l = -W_kern; l <= W_kern; l++) {
+                    magX += in.at<uchar>(i + k, j + l) * Kx.at<float>(H_kern + k, W_kern + l);
+                    magY += in.at<uchar>(i + k, j + l) * Ky.at<float>(H_kern + k, W_kern + l);
                 }
             }
-            out.at<float>(i, j) = sum / 12;
+
+            magnitude.at<float>(i, j) = sqrtf(powf(magX, 2) + powf(magY, 2));
+            theta.at<float>(i, j) = atanf(magY / magX);
         }
     }
 
-    return out;
+    // normalise
+    double min, max;
+    cv::minMaxLoc(magnitude, &min, &max);
+    magnitude = magnitude / max;
+}
+
+void NMS(Mat& in, Mat& out, Mat& angles)
+{
+    angles = angles * 180 / CV_PI;
+    for (int i = 2; i < in.rows - 1; i++) {
+        for (int j = 2; j < in.cols - 1; j++) {
+            if (angles.at<float>(i, j) >= -22.5 && angles.at<float>(i, j) <= 22.5) {
+
+                if ((in.at<float>(i, j) >= in.at<float>(i, j + 1))
+                    && (in.at<float>(i, j) >= in.at<float>(i, j - 1)))
+                    out.at<float>(i, j) = in.at<float>(i, j);
+            }
+            else if (angles.at<float>(i, j) >= 22.5 && angles.at<float>(i, j) <= 67.5) {
+                if ((in.at<float>(i, j) >= in.at<float>(i + 1, j + 1)) && (in.at<float>(i, j) >= in.at<float>(i - 1, j - 1)))
+                    out.at<float>(i, j) = in.at<float>(i, j);
+            }
+            else if (
+                (angles.at<float>(i, j) < -22.5 && angles.at<float>(i, j) >= -67.5)) {
+                if ((in.at<float>(i, j) >= in.at<float>(i + 1, j - 1)) && (in.at<float>(i, j) >= in.at<float>(i - 1, j + 1)))
+                    out.at<float>(i, j) = in.at<float>(i, j);
+            }
+            else if (
+                (angles.at<float>(i, j) >= 67.5 && angles.at<float>(i, j) <= 90) || (angles.at<float>(i, j) < -67.5 && angles.at<float>(i, j) >= -90)) {
+                if (
+                    (in.at<float>(i, j) >= in.at<float>(i + 1, j)) && (in.at<float>(i, j) >= in.at<float>(i - 1, j)))
+                    out.at<float>(i, j) = in.at<float>(i, j);
+            }
+        }
+    }
 }
 
 int main(int argc, char** argv)
 {
     // LOAD IMAGES
-    std::string image_path = samples::findFile("../data/lidi2.jpeg");
-    Mat img = imread(image_path);
+    std::string image_path = samples::findFile(argv[1]);
+    Mat img = imread(image_path, 0);
     if (img.empty()) {
         std::cout << "Could not read the image: " << image_path << std::endl;
         return 1;
@@ -45,53 +84,32 @@ int main(int argc, char** argv)
 
     imshow("original", img);
 
-    Mat img_gray;
-    cvtColor(img, img_gray, COLOR_BGR2GRAY);
-
     Mat img_blur;
-    GaussianBlur(img_gray, img_blur, Size(3, 3), 0);
-
-    // Mat sobelx, sobely, sobelxy;
-    // Sobel(img_blur, sobelx, CV_64F, 1, 0, 5);
-    // Sobel(img_blur, sobely, CV_64F, 0, 1, 5);
-    // Sobel(img_blur, sobelxy, CV_64F, 1, 1, 5);
-    // imshow("Sobel XY using Sobel() function", sobelxy);
-    // imshow("Sobel Y", sobely);
-    // imshow("Sobel X", sobelx);
-
-    // Mat edges;
-    // Canny(img_blur, edges, 100, 200, 3, false);
-    // imshow("Canny edge detection", edges);
+    GaussianBlur(img, img_blur, Size(3, 3), 0);
 
     // Prewitt horizontal
     float p_kernelY[9] = { 1, 1, 1, 0, 0, 0, -1, -1, -1 };
     cv::Mat prewittY = cv::Mat(3, 3, CV_32F, p_kernelY);
-    std::cout << prewittY << std::endl;
 
-    // apply filter
-    cv::Mat My;
-    // My = convolve(img_blur, prewitt);
-    cv::filter2D(img_blur, My, img_blur.depth(), prewittY);
-    imshow("My", My);
+    // std::cout << prewittY << std::endl;
 
     // Prewitt vertical
     float p_kernelX[9] = { 1, 0, -1, 1, 0, -1, 1, 0, -1 };
     cv::Mat prewittX = cv::Mat(3, 3, CV_32F, p_kernelX);
-    std::cout << prewittX << std::endl;
+    // std::cout << prewittX << std::endl;
 
-    // apply filter
-    cv::Mat Mx;
-    cv::filter2D(img_blur, Mx, img_blur.depth(), prewittX);
-    imshow("Mx", Mx);
+    cv::Mat magnitude = Mat::zeros(img.rows, img.cols, CV_32F);
+    cv::Mat theta = Mat::zeros(img.rows, img.cols, CV_32F);
+    cv::Mat nms = Mat::zeros(img.rows, img.cols, CV_32F);
 
-    My.convertTo(My, CV_32F);
-    Mx.convertTo(Mx, CV_32F);
+    filterPrewitt(img, magnitude, theta, prewittX, prewittY);
+    // check_data(magnitude, "magnitude");
+    // check_data(theta, "theta");
+    imshow("magnitude", magnitude);
 
-    cv::Mat prewitt_out(Mx.size(), CV_32F);
-
-    cv::magnitude(Mx, My, prewitt_out);
-
-    imshow("prewitt_out", prewitt_out / 255);
+    NMS(magnitude, nms, theta);
+    // check_data(nms, "nms");
+    imshow("nms", nms);
 
     int k = waitKey(0); // Wait for a keystroke in the window
     // if (k == 's') {

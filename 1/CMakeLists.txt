@@ -9,6 +9,9 @@ find_package( OpenCV REQUIRED )
 
 # include_directories(include)
 add_executable( main src/main.cpp )
-target_link_libraries( main ${OpenCV_LIBS})
+target_link_libraries( main ${OpenCV_LIBS} "-static") 
 
 # linker flag for no console: /ENTRY:"mainCRTStartup"
+
+set(CMAKE_INSTALL_PREFIX install )
+install(TARGETS main DESTINATION ${CMAKE_INSTALL_PREFIX})
