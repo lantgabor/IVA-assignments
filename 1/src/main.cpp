@@ -93,7 +93,6 @@ int main(int argc, char** argv)
     // Prewitt horizontal
     float p_kernelY[9] = { 1, 1, 1, 0, 0, 0, -1, -1, -1 };
     cv::Mat prewittY = cv::Mat(3, 3, CV_32F, p_kernelY);
-
     // std::cout << prewittY << std::endl;
 
     // Prewitt vertical
