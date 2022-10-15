@@ -73,7 +73,7 @@ void NMS(Mat& in, Mat& out, Mat& angles)
 int main(int argc, char** argv)
 {
     // LOAD IMAGE
-    cv::CommandLineParser parser(argc, argv, "{@input |../data/motor.png|input image}");
+    cv::CommandLineParser parser(argc, argv, "{@input |../data/julia.png|input image}");
     String imageName = parser.get<String>("@input");
     std::string image_path
         = samples::findFile(imageName);
@@ -109,7 +109,12 @@ int main(int argc, char** argv)
 
     NMS(magnitude, nms, theta);
     // check_data(nms, "nms");
+
+    magnitude.convertTo(magnitude, CV_8UC3, 255.0);
+    imwrite("magnitude.png", magnitude);
+    nms.convertTo(nms, CV_8UC3, 255.0);
     imshow("nms", nms);
+    imwrite("nms.png", nms);
 
     int k = waitKey(0); // Wait for a keystroke in the window
     // if (k == 's') {
