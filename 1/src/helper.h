@@ -9,8 +9,6 @@
 
 using namespace cv;
 
-/* HELPERS FOR OPENCV TYPES GOD HELP ME PLEASE */
-
 // CV_8U -> unsigned char (min = 0, max = 255)
 // CV_32F -> float
 
