@@ -3,13 +3,14 @@ cmake_minimum_required(VERSION 3.9)
 
 project( main )
 
+
 set(OpenCV_STATIC ON)
 find_package( OpenCV REQUIRED )
 # include_directories( ${OpenCV_INCLUDE_DIRS} )
 
 # include_directories(include)
 add_executable( main src/main.cpp )
-target_link_libraries( main ${OpenCV_LIBS} "-static") 
+target_link_libraries( main ${OpenCV_LIBS}) 
 
 # linker flag for no console: /ENTRY:"mainCRTStartup"
 
