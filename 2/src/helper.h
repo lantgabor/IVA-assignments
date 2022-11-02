@@ -61,6 +61,7 @@ void check_data(Mat m, std::string name)
     std::cout << type2str(m.type()) << std::endl;
     std::cout << min << " <-> " << max << std::endl;
     std::cout << m.channels() << std::endl;
+    std::cout << m.size() << std::endl;
     std::cout << "------------------------" << std::endl;
 }
 
