@@ -115,7 +115,8 @@ int main(int argc, char const* argv[])
 
     int k = waitKey(0); // Wait for a keystroke in the window
     if (k == 's') {
-        imwrite(imageName + "save.png", img_bw);
+        imwrite(imageName + "_save.png", img_bw);
+        imwrite(imageName + "_histogram.png", histogram);
     }
     return 0;
 }
