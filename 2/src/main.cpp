@@ -115,8 +115,8 @@ int main(int argc, char const* argv[])
 
     int k = waitKey(0); // Wait for a keystroke in the window
     if (k == 's') {
-        imwrite(imageName + "_save.png", img_bw);
-        imwrite(imageName + "_histogram.png", histogram);
+        imwrite(imageName + "-" + std::to_string(val) + "-save.png", img_bw);
+        imwrite(imageName + "-histogram.png", histogram);
     }
     return 0;
 }
