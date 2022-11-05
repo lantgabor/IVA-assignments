@@ -11,7 +11,7 @@
 using namespace cv;
 using namespace std;
 
-void historgram(Mat& src, Mat& hists)
+void histogram(Mat& src, Mat& hists)
 {
     /* Calc histogram */
     int histSize = 256;
@@ -79,7 +79,7 @@ int Otsu(Mat& src, Mat& dst, Mat& hists, Mat& vars)
 int main(int argc, char const* argv[])
 {
     // LOAD IMAGE
-    cv::CommandLineParser parser(argc, argv, "{@input |../data/lena.png|input image}");
+    cv::CommandLineParser parser(argc, argv, "{@input |../data/julia.png|input image}");
     String imageName = parser.get<String>("@input");
     std::string image_path = samples::findFile(imageName);
     Mat img = imread(image_path, 0);
@@ -90,7 +90,7 @@ int main(int argc, char const* argv[])
     imshow("original", img);
 
     Mat hists = Mat::zeros(1, 256, CV_32FC1);
-    historgram(img, hists);
+    histogram(img, hists);
 
     Mat img_bw;
     int val = 0;
