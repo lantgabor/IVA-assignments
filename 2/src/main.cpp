@@ -27,7 +27,7 @@ int Otsu(Mat& src, Mat& dst, Mat& hists, Mat& vars)
 {
 
     // reset dst image
-    dst = Mat::zeros(src.rows, src.cols, CV_8UC1);
+    dst = Mat::zeros(src.rows, src.cols, CV_U8C1);
     int threshold = 0;
 
     size_t total = src.total();
