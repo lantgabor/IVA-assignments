@@ -14,7 +14,7 @@ using namespace std;
 int main(int argc, char const* argv[])
 {
     // LOAD IMAGE
-    cv::String keys = "{@input |../data/blood.png|input image}"
+    cv::String keys = "{@input |../data/cells.png|input image}"
                       "{@min |3 |min range of diameters}"
                       "{@max |32 |max range of diameters}";
 
@@ -29,9 +29,17 @@ int main(int argc, char const* argv[])
     }
     imshow("original", img);
 
+    // Edge detection
+    Mat canny;
+    Canny(img, canny, 50, 200, 3);
+
+    Mat hists = Mat::zeros(1, 256, CV_32FC1);
+
+    imshow("canny", canny);
+
     Mat gray;
     cvtColor(img, gray, COLOR_BGR2GRAY);
-    medianBlur(gray, gray, 5);
+    // medianBlur(gray, gray, 5);
 
     vector<Vec3f> circles;
     HoughCircles(gray, circles, HOUGH_GRADIENT, 1,
