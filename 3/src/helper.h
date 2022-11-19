@@ -10,7 +10,12 @@
 using namespace cv;
 
 // CV_8U -> unsigned char (min = 0, max = 255)
+// CV_8S -> signed char (min = -128, max = 127)
+// CV_16U -> ushort (min = 0, max = 65535)
+// CV_16S -> short (min = -32768, max = 32767)
+// CV_32S -> int
 // CV_32F -> float
+// CV_64F -> double
 
 std::string type2str(int type)
 {
