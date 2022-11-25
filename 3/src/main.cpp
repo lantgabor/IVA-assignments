@@ -11,10 +11,31 @@
 using namespace cv;
 using namespace std;
 
+void HC(Mat& img, Mat& edges, vector<Vec3f>& circles, int min, int max)
+{
+
+    Mat accumulator = Mat::zeros(edges.rows, edges.cols, CV_8UC1);
+
+    for (int r = min; r < max; r++) {
+        for (int i = 0; i < edges.rows; i++) {
+            for (int j = 0; j < edges.cols; j++) {
+                if (edges.at<uchar>(i, j) > 0) {
+                    Mat tmp = Mat::zeros(edges.rows, edges.cols, CV_8UC1);
+                    circle(tmp, Point(j, i), r, 1, 1);
+                    addWeighted(accumulator, 1, tmp, 1, 0, accumulator);
+                }
+            }
+        }
+    }
+
+    check_data(accumulator, "accumulator");
+    imshow("accumulator", accumulator);
+}
+
 int main(int argc, char const* argv[])
 {
     // LOAD IMAGE
-    cv::String keys = "{@input |../data/cells.png|input image}"
+    cv::String keys = "{@input |../data/circles.png|input image}"
                       "{@min |3 |min range of diameters}"
                       "{@max |32 |max range of diameters}";
 
@@ -47,6 +68,9 @@ int main(int argc, char const* argv[])
         100, 30, parser.get<int>("@min"), parser.get<int>("@max") // change the last two parameters
         // (min_radius & max_radius) to detect larger circles
         );
+
+    HC(img, canny, circles, parser.get<int>("@min"), parser.get<int>("@max"));
+
     for (size_t i = 0; i < circles.size(); i++) {
         Vec3i c = circles[i];
         Point center = Point(c[0], c[1]);
