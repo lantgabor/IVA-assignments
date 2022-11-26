@@ -10,33 +10,83 @@
 
 using namespace cv;
 using namespace std;
+void voteWithBoundaries(Mat& A, int x, int y)
+{
+    if (x < 0 || x >= A.rows || y < 0 || y >= A.cols)
+        return;
+    else
+        A.at<uchar>(x, y) += 1;
+}
+void voteCircle(Mat& A, int x, int y, int r, float angle)
+{
+    voteWithBoundaries(A, x, y + r);
+    voteWithBoundaries(A, x, y - r);
+    voteWithBoundaries(A, x + r, y);
+    voteWithBoundaries(A, x - r, y);
+}
 
-void HC(Mat& img, Mat& edges, vector<Vec3f>& circles, int min, int max)
+void HC(Mat& gray, vector<Vec3f>& circles, int min, int max)
 {
 
-    Mat accumulator = Mat::zeros(edges.rows, edges.cols, CV_8UC1);
+    // Edge detection
+    Mat edges;
+    Canny(gray, edges, 50, 200, 3);
+
+    imshow("canny", edges);
+
+    Mat dx, dy;
+    Sobel(gray, dx, CV_32FC1, 1, 0);
+    Sobel(gray, dy, CV_32FC1, 0, 1);
+    Mat angles;
+
+    phase(dx, dy, angles, true);
+    // angles = angles / 360 * 255;
+    // angles.convertTo(angles, CV_8U);
+
+    // 3D accumulator A[a,b,r] - cones
+    // Init zero
+    vector<Mat> accumulator(max - min, Mat(gray.rows, gray.cols, CV_8UC1, Scalar(0)));
 
     for (int r = min; r < max; r++) {
-        for (int i = 0; i < edges.rows; i++) {
-            for (int j = 0; j < edges.cols; j++) {
-                if (edges.at<uchar>(i, j) > 0) {
-                    Mat tmp = Mat::zeros(edges.rows, edges.cols, CV_8UC1);
-                    circle(tmp, Point(j, i), r, 1, 1);
-                    addWeighted(accumulator, 1, tmp, 1, 0, accumulator);
+
+        // Get radius scaled to min-max
+        Mat& A = accumulator[r - min];
+
+        for (int x = 0; x < edges.rows; x++) {
+            for (int y = 0; y < edges.cols; y++) {
+                if (edges.at<uchar>(x, y) > 0) {
+                    voteCircle(A, x, y, r, angles.at<float>(x, y));
                 }
+                // Mat tmp = Mat::zeros(edges.rows, edges.cols, CV_8UC1);
+                // circle(tmp, Point(y, x), r, 1, 1);
+                // addWeighted(A, 1.0, tmp, 1.0, 0, A);
             }
         }
     }
 
-    check_data(accumulator, "accumulator");
-    imshow("accumulator", accumulator);
+    // Mat accumulator = Mat::zeros(edges.rows, edges.cols, CV_8UC3);
+
+    // for (int r = min; r < max; r++) {
+    //     for (int x = 0; x < edges.rows; x++) {
+    //         for (int y = 0; y < edges.cols; y++) {
+    //             if (edges.at<uchar>(x, y) > 0) {
+    //
+    //
+    //
+    //             }
+    //         }
+    //     }
+    // }
+
+    // check_data(accumulator, "accumulator");
+    imshow("accumulator0", accumulator[20]);
 }
 
 int main(int argc, char const* argv[])
 {
     // LOAD IMAGE
-    cv::String keys = "{@input |../data/circles.png|input image}"
-                      "{@min |3 |min range of diameters}"
+    cv::String keys = "{@input |../data/cells.png|input image}"
+                      "{@min |4 |min range of diameters}"
                       "{@max |32 |max range of diameters}";
 
     cv::CommandLineParser parser(argc, argv, keys);
@@ -50,14 +100,6 @@ int main(int argc, char const* argv[])
     }
     imshow("original", img);
 
-    // Edge detection
-    Mat canny;
-    Canny(img, canny, 50, 200, 3);
-
-    Mat hists = Mat::zeros(1, 256, CV_32FC1);
-
-    imshow("canny", canny);
-
     Mat gray;
     cvtColor(img, gray, COLOR_BGR2GRAY);
     // medianBlur(gray, gray, 5);
@@ -69,7 +111,7 @@ int main(int argc, char const* argv[])
         // (min_radius & max_radius) to detect larger circles
         );
 
-    HC(img, canny, circles, parser.get<int>("@min"), parser.get<int>("@max"));
+    HC(gray, circles, parser.get<int>("@min"), parser.get<int>("@max"));
 
     for (size_t i = 0; i < circles.size(); i++) {
         Vec3i c = circles[i];
