@@ -6,7 +6,7 @@ OpenCV, CMake
 
 # Run
 
-build/
+main.exe path/to/img.png Rmin Rmax param1 param2
 
 # Output
 
