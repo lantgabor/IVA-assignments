@@ -119,11 +119,11 @@ int main(int argc, char const* argv[])
     Mat accumulatorImg = Mat::zeros(gray.rows, gray.cols, CV_8UC1);
 
     // OpenCV Reference
-    HoughCircles(gray, circles, HOUGH_GRADIENT, 1,
-        img.rows / 16, // change this value to detect circles with different distances to each other
-        100, 30, parser.get<int>("@min"), parser.get<int>("@max") // change the last two parameters
-        // (min_radius & max_radius) to detect larger circles
-        );
+    // HoughCircles(gray, circles, HOUGH_GRADIENT, 1,
+    //     img.rows / 16, // change this value to detect circles with different distances to each other
+    //     100, 30, parser.get<int>("@min"), parser.get<int>("@max") // change the last two parameters
+    //     // (min_radius & max_radius) to detect larger circles
+    //     );
 
     HC(gray, accumulatorImg, circles, 1, parser.get<int>("@param1"), parser.get<int>("@param2"), parser.get<int>("@min"), parser.get<int>("@max"));
 
