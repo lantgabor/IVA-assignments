@@ -24,7 +24,7 @@ void voteCircle(Mat& A, int x, int y, int r, float angle, int rows, int cols, in
 
     int a, b;
 
-    // Try only with perpendicular points only
+    // Try with perpendicular points only
     voteWithBoundaries(A, x, y, r, rows, cols, min, max);
     angle = angle - 90;
     a = x + r * cos(angle * CV_PI / 180);
@@ -127,7 +127,7 @@ int main(int argc, char const* argv[])
 
     HC(gray, accumulatorImg, circles, 1, parser.get<int>("@param1"), parser.get<int>("@param2"), parser.get<int>("@min"), parser.get<int>("@max"));
 
-    // Dispalay accumulator image
+    // Display accumulator image
     accumulatorImg = accumulatorImg * 10; // scale for more visibility
     imshow("accumulatorImg", accumulatorImg);
 
