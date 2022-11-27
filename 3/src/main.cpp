@@ -22,9 +22,10 @@ void voteWithBoundaries(Mat& A, int x, int y, int r, int rows, int cols, int min
 void voteCircle(Mat& A, int x, int y, int r, float angle, int rows, int cols, int min, int max)
 {
 
+    int a, b;
+
     // Try only with perpendicular points only
     voteWithBoundaries(A, x, y, r, rows, cols, min, max);
-    int a, b;
     angle = angle - 90;
     a = x + r * cos(angle * CV_PI / 180);
     b = y - r * sin(angle * CV_PI / 180);
@@ -43,7 +44,7 @@ void voteCircle(Mat& A, int x, int y, int r, float angle, int rows, int cols, in
 }
 
 // https://en.wikipedia.org/wiki/Circle_Hough_Transform
-void HC(Mat& gray, vector<Vec3f>& circles, int minDist, int param1, int param2, int min, int max)
+void HC(Mat& gray, Mat& accumulatorImg, vector<Vec3f>& circles, int minDist, int param1, int param2, int min, int max)
 {
 
     // Edge detection
@@ -57,7 +58,7 @@ void HC(Mat& gray, vector<Vec3f>& circles, int minDist, int param1, int param2, 
     Mat angles;
     phase(dx, dy, angles, true);
 
-    // 3D accumulator A[a,b,r] - cones
+    // 3D accumulator A[a,b,r] - cones[centerX, centerY, radius]
     int sizes[] = { gray.rows, gray.cols, max - min };
     Mat A(3, sizes, CV_8UC1, Scalar(0));
 
@@ -65,7 +66,7 @@ void HC(Mat& gray, vector<Vec3f>& circles, int minDist, int param1, int param2, 
 
         for (int x = 0; x < edges.rows; x++) {
             for (int y = 0; y < edges.cols; y++) {
-                if (edges.at<uchar>(x, y) > 0) {
+                if (edges.at<uchar>(x, y) > 0) { // if edges
                     voteCircle(A, x, y, r, angles.at<float>(x, y), edges.rows, edges.cols, min, max);
                 }
             }
@@ -82,14 +83,12 @@ void HC(Mat& gray, vector<Vec3f>& circles, int minDist, int param1, int param2, 
     }
 
     // Display some accumulators
-    for (size_t r = min; r < max; r += 10) {
-        Mat test = Mat::zeros(gray.rows, gray.cols, CV_8UC1);
+    for (size_t r = 0; r < max - min; r++) {
         for (int x = 0; x < gray.rows; x++) {
             for (int y = 0; y < gray.cols; y++) {
-                test.at<uchar>(x, y) = A.at<uchar>(x, y, r - min);
+                accumulatorImg.at<uchar>(x, y) = A.at<uchar>(x, y, r);
             }
         }
-        imshow("test" + r, test);
     }
 }
 
@@ -98,7 +97,9 @@ int main(int argc, char const* argv[])
     // LOAD IMAGE
     cv::String keys = "{@input |../data/circles.png|input image}"
                       "{@min |5 |min range of diameters}"
-                      "{@max |32 |max range of diameters}";
+                      "{@max |15 |max range of diameters}"
+                      "{@param1 |155 |threshold of the Canny edge detector}"
+                      "{@param2 |15 | accumulator threshold for the circle centers}";
 
     cv::CommandLineParser parser(argc, argv, keys);
 
@@ -115,17 +116,20 @@ int main(int argc, char const* argv[])
     cvtColor(img, gray, COLOR_BGR2GRAY);
     // medianBlur(gray, gray, 5);
     vector<Vec3f> circles;
+    Mat accumulatorImg = Mat::zeros(gray.rows, gray.cols, CV_8UC1);
 
-    /*
-    // OpenCV Refernece
+    // OpenCV Reference
     HoughCircles(gray, circles, HOUGH_GRADIENT, 1,
         img.rows / 16, // change this value to detect circles with different distances to each other
         100, 30, parser.get<int>("@min"), parser.get<int>("@max") // change the last two parameters
         // (min_radius & max_radius) to detect larger circles
         );
-    */
 
-    HC(gray, circles, 1, 155, 15, parser.get<int>("@min"), parser.get<int>("@max"));
+    HC(gray, accumulatorImg, circles, 1, parser.get<int>("@param1"), parser.get<int>("@param2"), parser.get<int>("@min"), parser.get<int>("@max"));
+
+    // Dispalay accumulator image
+    accumulatorImg = accumulatorImg * 10; // scale for more visibility
+    imshow("accumulatorImg", accumulatorImg);
 
     // Display cirlces and centers on original img
     for (size_t i = 0; i < circles.size(); i++) {
@@ -140,8 +144,9 @@ int main(int argc, char const* argv[])
     imshow("detected circles", img);
 
     int k = waitKey(0); // Wait for a keystroke in the window
-    // if (k == 's') {
-    //     imwrite(imageName + "-" + std::to_string(val) + "-save.png", img_bw);
-    // }
+    if (k == 's') {
+        imwrite(imageName + "_accumulator.png", accumulatorImg);
+        imwrite(imageName + "_detected.png", img);
+    }
     return 0;
 }
