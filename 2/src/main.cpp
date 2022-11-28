@@ -1,8 +1,8 @@
 #include <opencv2/core.hpp>
-#include <opencv2/imgcodecs.hpp>
 #include <opencv2/highgui.hpp>
-#include <opencv2/opencv.hpp>
+#include <opencv2/imgcodecs.hpp>
 #include <opencv2/imgproc.hpp>
+#include <opencv2/opencv.hpp>
 
 #include <iostream>
 
@@ -27,7 +27,7 @@ int Otsu(Mat& src, Mat& dst, Mat& hists, Mat& vars)
 {
 
     // reset dst image
-    dst = Mat::zeros(src.rows, src.cols, CV_U8C1);
+    dst = Mat::zeros(src.rows, src.cols, CV_8UC1);
     int threshold = 0;
 
     size_t total = src.total();
