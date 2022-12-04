@@ -3,6 +3,7 @@ cmake_minimum_required(VERSION 3.9)
 
 project( main )
 
+
 set(OpenCV_STATIC ON)
 find_package( OpenCV REQUIRED )
 # include_directories( ${OpenCV_INCLUDE_DIRS} )
