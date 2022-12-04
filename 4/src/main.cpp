@@ -27,29 +27,76 @@ int main(int argc, char const* argv[])
         return 1;
     }
 
-    double fps = capture.get(CAP_PROP_FPS);
+    // Create some random colors
+    vector<Scalar> colors;
+    RNG rng;
+    for (int i = 0; i < 100; i++) {
+        int r = rng.uniform(0, 256);
+        int g = rng.uniform(0, 256);
+        int b = rng.uniform(0, 256);
+        colors.push_back(Scalar(r, g, b));
+    }
 
-    Mat frame;
+    Mat frame, frame_before;
+    vector<Point2f> p0, p1;
+    capture >> frame;
+    cvtColor(frame, frame_before, COLOR_BGR2GRAY);
+    goodFeaturesToTrack(frame_before, p0, 100, 0.3, 7, Mat(), 7, false, 0.04);
+
+    // Create a mask image for drawing purposes
+    Mat mask = Mat::zeros(frame_before.size(), frame_before.type());
 
     // Start time
+    double fps = capture.get(CAP_PROP_FPS);
     time_t start, end;
     time(&start);
-    while (capture.read(frame)) {
-        time(&end);
-        // Time elapsed
-        double seconds = difftime(end, start);
+    while (true) {
+        capture >> frame;
 
-        putText(frame, format("FPS: %1.1f", fps), Point(50, 30), FONT_HERSHEY_SIMPLEX, 0.75, Scalar(50, 170, 50), 2);
-        putText(frame, format("Time: %1.1fs", seconds), Point(50, 70), FONT_HERSHEY_SIMPLEX, 0.75, Scalar(50, 170, 50), 2);
-        // Display frame.
-        imshow("Tracking", frame);
+        // exit on end
         if (frame.empty())
             break;
+
+        cvtColor(frame, frame, COLOR_BGR2GRAY);
+
+        // calculate optical flow
+        vector<uchar> status;
+        vector<float> err;
+        TermCriteria criteria = TermCriteria((TermCriteria::COUNT) + (TermCriteria::EPS), 10, 0.03);
+        calcOpticalFlowPyrLK(frame_before, frame, p0, p1, status, err, Size(15, 15), 2, criteria);
+
+        vector<Point2f> good_new;
+        for (uint i = 0; i < p0.size(); i++) {
+            // Select good points
+            if (status[i] == 1) {
+                good_new.push_back(p1[i]);
+                // draw the tracks
+                line(mask, p1[i], p0[i], colors[i], 2);
+                circle(frame, p1[i], 5, colors[i], -1);
+            }
+        }
+        Mat img;
+        add(frame, mask, img);
+
+        // Time elapsed
+        time(&end);
+        double seconds = difftime(end, start);
+
+        putText(img, format("FPS: %1.1f", fps), Point(50, 30), FONT_HERSHEY_SIMPLEX, 0.75, Scalar(50, 170, 50), 2);
+        putText(img, format("Time: %1.1fs", seconds), Point(50, 70), FONT_HERSHEY_SIMPLEX, 0.75, Scalar(50, 170, 50), 2);
+
+        // Display frame.
+        imshow("Optical flow", img);
+
         // Exit if ESC pressed.
         int k = waitKey(fps);
         if (k == 27) {
             break;
         }
+
+        // Now update the previous frame and previous points
+        frame_before = frame.clone();
+        p0 = good_new;
     }
 
     return 0;
