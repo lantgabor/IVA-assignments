@@ -37,11 +37,13 @@ int main(int argc, char const* argv[])
         colors.push_back(Scalar(r, g, b));
     }
 
-    Mat frame, frame_before;
+    Mat frame_before, frame_before_g;
     vector<Point2f> p0, p1;
-    capture >> frame;
-    cvtColor(frame, frame_before, COLOR_BGR2GRAY);
-    goodFeaturesToTrack(frame_before, p0, 100, 0.3, 7, Mat(), 7, false, 0.04);
+
+    // Take first frame and find corners in it
+    capture >> frame_before;
+    cvtColor(frame_before, frame_before_g, COLOR_BGR2GRAY);
+    goodFeaturesToTrack(frame_before_g, p0, 100, 0.3, 7, Mat(), 7, false, 0.04);
 
     // Create a mask image for drawing purposes
     Mat mask = Mat::zeros(frame_before.size(), frame_before.type());
@@ -51,19 +53,20 @@ int main(int argc, char const* argv[])
     time_t start, end;
     time(&start);
     while (true) {
+        Mat frame, frame_g;
         capture >> frame;
 
         // exit on end
         if (frame.empty())
             break;
 
-        cvtColor(frame, frame, COLOR_BGR2GRAY);
+        cvtColor(frame, frame_g, COLOR_BGR2GRAY);
 
         // calculate optical flow
         vector<uchar> status;
         vector<float> err;
         TermCriteria criteria = TermCriteria((TermCriteria::COUNT) + (TermCriteria::EPS), 10, 0.03);
-        calcOpticalFlowPyrLK(frame_before, frame, p0, p1, status, err, Size(15, 15), 2, criteria);
+        calcOpticalFlowPyrLK(frame_before_g, frame_g, p0, p1, status, err, Size(15, 15), 2, criteria);
 
         vector<Point2f> good_new;
         for (uint i = 0; i < p0.size(); i++) {
@@ -95,7 +98,7 @@ int main(int argc, char const* argv[])
         }
 
         // Now update the previous frame and previous points
-        frame_before = frame.clone();
+        frame_before_g = frame_g.clone();
         p0 = good_new;
     }
 
