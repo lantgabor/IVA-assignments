@@ -14,19 +14,20 @@ using namespace std;
 
 void DOF(Mat& frame_g, Mat& frame_before_g)
 {
-    /*  Dense Optical flow
-            Two-Frame Motion Estimation Based on Polynomial Expansion" by Gunnar Farneback
+    /*  
+        Dense Optical flow
+        Two-Frame Motion Estimation Based on Polynomial Expansion" by Gunnar Farneback
     */
     Mat flow(frame_before_g.size(), CV_32FC2);
     calcOpticalFlowFarneback(frame_before_g,
         frame_g,
         flow,
-        0.5,
-        3,
-        15,
-        3,
-        5,
-        1.2,
+        0.5 /* Pyramid scale */,
+        3 /* max levels */,
+        15 /* Window size */,
+        3 /* Iterations per pyramid level */,
+        5 /* Poly pixel neighbourhood */,
+        1.2 /* Poly sigma */,
         0);
     // visualization
     Mat flow_parts[2];
@@ -44,6 +45,50 @@ void DOF(Mat& frame_g, Mat& frame_before_g)
     hsv.convertTo(hsv8, CV_8U, 255.0);
     cvtColor(hsv8, bgr, COLOR_HSV2BGR);
     imshow("Dense optical flow", bgr);
+}
+
+void KLT(vector<Scalar>& colors, Mat& frame, Mat& frame_g, Mat& frame_before_g, Mat& mask, vector<Point2f>& p0, vector<Point2f>& p1, int windowSize, int maxLevel)
+{
+    /*
+        Calculate Lucas-Kanade Optical Flow 
+    */
+    vector<uchar> status;
+    vector<float> err;
+    TermCriteria criteria = TermCriteria((TermCriteria::COUNT) + (TermCriteria::EPS), 10, 0.03);
+    calcOpticalFlowPyrLK(frame_before_g /*prev img*/,
+        frame_g /*next img*/,
+        p0 /*prev pts*/,
+        p1 /*next pts*/,
+        status,
+        err,
+        Size(windowSize, windowSize) /* window size*/,
+        maxLevel /* maximal pyramid level number */,
+        criteria);
+
+    vector<Point2f> good_new;
+    for (uint i = 0; i < p0.size(); i++) {
+        // Select good points
+        if (status[i] == 1) {
+            good_new.push_back(p1[i]);
+            // draw the tracks
+            line(mask, p1[i], p0[i], colors[i], 2);
+            circle(frame, p1[i], 5, colors[i], -1);
+        }
+    }
+    p0 = good_new;
+
+    Mat img;
+    add(frame, mask, img);
+
+    // putText(img, format("Time: %1.1fs", seconds), Point(50, 20), FONT_HERSHEY_SIMPLEX, 0.5, Scalar(50, 170, 50), 1);
+    // putText(img, format("numPts: %d", parser.get<int>("@numPts")), Point(50, 40), FONT_HERSHEY_SIMPLEX, 0.5, Scalar(50, 170, 50), 1);
+    // putText(img, format("cornerQuality: %1.2f", parser.get<float>("@cornerQuality")), Point(50, 60), FONT_HERSHEY_SIMPLEX, 0.5, Scalar(50, 170, 50), 1);
+    // putText(img, format("minDist: %dpx", parser.get<int>("@minDist")), Point(50, 80), FONT_HERSHEY_SIMPLEX, 0.5, Scalar(50, 170, 50), 1);
+    // putText(img, format("windowSize: %d", parser.get<int>("@windowSize")), Point(50, 100), FONT_HERSHEY_SIMPLEX, 0.5, Scalar(50, 170, 50), 1);
+    // putText(img, format("maxLevel: %d", parser.get<int>("@maxLevel")), Point(50, 120), FONT_HERSHEY_SIMPLEX, 0.5, Scalar(50, 170, 50), 1);
+
+    // Display frame.
+    imshow("Optical flow", img);
 }
 
 /* src: https://docs.opencv.org/3.4/d4/dee/tutorial_optical_flow.html */
@@ -107,7 +152,7 @@ pixel neighborhood */,
     Mat mask = Mat::zeros(frame_before.size(), frame_before.type());
 
     // Start time
-    double speed = 5; // capture.get(CAP_PROP_FPS);
+    int speed = 5; // capture.get(CAP_PROP_FPS);
     time_t start, end;
     time(&start);
 
@@ -124,48 +169,11 @@ pixel neighborhood */,
         cvtColor(frame, frame_g, COLOR_BGR2GRAY);
 
         // DOF(frame_g, frame_before_g);
-
-        /*  Calculate Lucas-Kanade Optical Flow 
-        */
-        vector<uchar> status;
-        vector<float> err;
-        TermCriteria criteria = TermCriteria((TermCriteria::COUNT) + (TermCriteria::EPS), 10, 0.03);
-        calcOpticalFlowPyrLK(frame_before_g /*prev img*/,
-            frame_g /*next img*/,
-            p0 /*prev pts*/,
-            p1 /*next pts*/,
-            status,
-            err,
-            Size(windowSize, windowSize) /* window size*/,
-            parser.get<int>("@maxLevel") /* maximal pyramid level number */,
-            criteria);
-
-        vector<Point2f> good_new;
-        for (uint i = 0; i < p0.size(); i++) {
-            // Select good points
-            if (status[i] == 1) {
-                good_new.push_back(p1[i]);
-                // draw the tracks
-                line(mask, p1[i], p0[i], colors[i], 2);
-                circle(frame, p1[i], 5, colors[i], -1);
-            }
-        }
-        Mat img;
-        add(frame, mask, img);
+        KLT(colors, frame, frame_g, frame_before_g, mask, p0, p1, parser.get<int>("@windowSize"), parser.get<int>("@maxLevel"));
 
         // Time elapsed
         time(&end);
         double seconds = difftime(end, start);
-
-        putText(img, format("Time: %1.1fs", seconds), Point(50, 20), FONT_HERSHEY_SIMPLEX, 0.5, Scalar(50, 170, 50), 1);
-        putText(img, format("numPts: %d", parser.get<int>("@numPts")), Point(50, 40), FONT_HERSHEY_SIMPLEX, 0.5, Scalar(50, 170, 50), 1);
-        putText(img, format("cornerQuality: %1.2f", parser.get<float>("@cornerQuality")), Point(50, 60), FONT_HERSHEY_SIMPLEX, 0.5, Scalar(50, 170, 50), 1);
-        putText(img, format("minDist: %dpx", parser.get<int>("@minDist")), Point(50, 80), FONT_HERSHEY_SIMPLEX, 0.5, Scalar(50, 170, 50), 1);
-        putText(img, format("windowSize: %d", parser.get<int>("@windowSize")), Point(50, 100), FONT_HERSHEY_SIMPLEX, 0.5, Scalar(50, 170, 50), 1);
-        putText(img, format("maxLevel: %d", parser.get<int>("@maxLevel")), Point(50, 120), FONT_HERSHEY_SIMPLEX, 0.5, Scalar(50, 170, 50), 1);
-
-        // Display frame.
-        imshow("Optical flow", img);
 
         // Exit if ESC pressed.
         int k = waitKey(speed);
@@ -175,7 +183,6 @@ pixel neighborhood */,
 
         // Now update the previous frame and previous points
         frame_before_g = frame_g.clone();
-        p0 = good_new;
     }
 
     return 0;
