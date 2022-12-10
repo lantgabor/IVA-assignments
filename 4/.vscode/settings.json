@@ -2,6 +2,8 @@
   "files.associations": {
     "vector": "cpp",
     "xutility": "cpp",
-    "xlocale": "cpp"
+    "xlocale": "cpp",
+    "chrono": "cpp",
+    "xstring": "cpp"
   }
 }

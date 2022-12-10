@@ -12,7 +12,7 @@
 using namespace cv;
 using namespace std;
 
-void DOF(Mat& frame_g, Mat& frame_before_g)
+Mat DOF(Mat& frame_g, Mat& frame_before_g, float scale, int windowSize, int maxLevel, int iterations)
 {
     /*  
         Dense Optical flow
@@ -22,11 +22,11 @@ void DOF(Mat& frame_g, Mat& frame_before_g)
     calcOpticalFlowFarneback(frame_before_g,
         frame_g,
         flow,
-        0.5 /* Pyramid scale */,
-        3 /* max levels */,
-        15 /* Window size */,
-        3 /* Iterations per pyramid level */,
-        5 /* Poly pixel neighbourhood */,
+        scale /* Pyramid scale */,
+        maxLevel /* number of pyramid layers including the initial image */,
+        windowSize /* Window size */,
+        iterations /* Iterations per pyramid level */,
+        15 /* Poly pixel neighbourhood */,
         1.2 /* Poly sigma */,
         0);
     // visualization
@@ -44,10 +44,11 @@ void DOF(Mat& frame_g, Mat& frame_before_g)
     merge(_hsv, 3, hsv);
     hsv.convertTo(hsv8, CV_8U, 255.0);
     cvtColor(hsv8, bgr, COLOR_HSV2BGR);
-    imshow("Dense optical flow", bgr);
+
+    return bgr;
 }
 
-void KLT(vector<Scalar>& colors, Mat& frame, Mat& frame_g, Mat& frame_before_g, Mat& mask, vector<Point2f>& p0, vector<Point2f>& p1, int windowSize, int maxLevel)
+Mat KLT(vector<Scalar>& colors, Mat& frame, Mat& frame_g, Mat& frame_before_g, Mat& mask, vector<Point2f>& p0, vector<Point2f>& p1, int windowSize, int maxLevel)
 {
     /*
         Calculate Lucas-Kanade Optical Flow 
@@ -80,27 +81,22 @@ void KLT(vector<Scalar>& colors, Mat& frame, Mat& frame_g, Mat& frame_before_g, 
     Mat img;
     add(frame, mask, img);
 
-    // putText(img, format("Time: %1.1fs", seconds), Point(50, 20), FONT_HERSHEY_SIMPLEX, 0.5, Scalar(50, 170, 50), 1);
-    // putText(img, format("numPts: %d", parser.get<int>("@numPts")), Point(50, 40), FONT_HERSHEY_SIMPLEX, 0.5, Scalar(50, 170, 50), 1);
-    // putText(img, format("cornerQuality: %1.2f", parser.get<float>("@cornerQuality")), Point(50, 60), FONT_HERSHEY_SIMPLEX, 0.5, Scalar(50, 170, 50), 1);
-    // putText(img, format("minDist: %dpx", parser.get<int>("@minDist")), Point(50, 80), FONT_HERSHEY_SIMPLEX, 0.5, Scalar(50, 170, 50), 1);
-    // putText(img, format("windowSize: %d", parser.get<int>("@windowSize")), Point(50, 100), FONT_HERSHEY_SIMPLEX, 0.5, Scalar(50, 170, 50), 1);
-    // putText(img, format("maxLevel: %d", parser.get<int>("@maxLevel")), Point(50, 120), FONT_HERSHEY_SIMPLEX, 0.5, Scalar(50, 170, 50), 1);
-
-    // Display frame.
-    imshow("Optical flow", img);
+    return img;
 }
 
 /* src: https://docs.opencv.org/3.4/d4/dee/tutorial_optical_flow.html */
 int main(int argc, char const* argv[])
 {
     // LOAD VIDEO
-    cv::String keys = "{@input |../data/halak1.mpg|input video}"
-                      "{@numPts |12|number of pts}"
-                      "{@cornerQuality |0.01|minimum quality of corner below which everyone is rejected}"
-                      "{@minDist |100|min euclidean distance}"
-                      "{@windowSize |32|window size}"
-                      "{@maxLevel |4|maximal pyramid level}";
+    cv::String keys = "{@input |../data/KLT_TRACK_r3.mpg|input video}"
+                      "{@detectionType |0|choose between `0` for `klt` or `1` for `dof`}"
+                      "{@numPts |16|number of pts}"
+                      "{@cornerQuality |0.1|minimum quality of corner below which everyone is rejected}"
+                      "{@minDist |64|min euclidean distance}"
+                      "{@windowSize |64|window size}"
+                      "{@maxLevel |3|maximal pyramid level}"
+                      "{@iterations |3|Iterations per pyramid level (DOF only)}"
+                      "{@scale |0.1|Pyramid scale (DOF only)}";
 
     cv::CommandLineParser parser(argc, argv, keys);
     String videoName = parser.get<String>("@input");
@@ -112,7 +108,7 @@ int main(int argc, char const* argv[])
         return 1;
     }
 
-    // Create some random colors
+    // Random colors for tracking
     vector<Scalar> colors;
     RNG rng;
     for (int i = 0; i < parser.get<int>("@numPts"); i++) {
@@ -123,7 +119,6 @@ int main(int argc, char const* argv[])
     }
 
     Mat frame_before, frame_before_g;
-    vector<Point2f> p0, p1;
 
     // Take first frame and find corners in it
     capture >> frame_before;
@@ -137,6 +132,7 @@ int main(int argc, char const* argv[])
         using Taylor Series expansion we can obtain E(u,v).
         2, Scoring func:  R = min(lambda_1, lambda_2)
     */
+    vector<Point2f> p0, p1;
     goodFeaturesToTrack(frame_before_g,
         p0,
         parser.get<int>("@numPts") /* N strongest corners in the image */,
@@ -148,40 +144,69 @@ pixel neighborhood */,
         false,
         0.04);
 
-    // Create a mask image for drawing purposes
+    // Crate mask to draw points on
     Mat mask = Mat::zeros(frame_before.size(), frame_before.type());
 
     // Start time
-    int speed = 5; // capture.get(CAP_PROP_FPS);
-    time_t start, end;
-    time(&start);
+    int speed = 1; // capture.get(CAP_PROP_FPS);
+    // time_t start, end;
+    // time(&start);
 
-    int windowSize = parser.get<int>("@windowSize");
-
+    Mat out;
     while (true) {
         Mat frame, frame_g;
+
         capture >> frame;
 
-        // exit on end
-        if (frame.empty())
+        // Exit on video end
+        if (frame.empty()) {
+            imwrite(videoName + "_s.png", out);
             break;
+        }
 
         cvtColor(frame, frame_g, COLOR_BGR2GRAY);
 
-        // DOF(frame_g, frame_before_g);
-        KLT(colors, frame, frame_g, frame_before_g, mask, p0, p1, parser.get<int>("@windowSize"), parser.get<int>("@maxLevel"));
-
         // Time elapsed
-        time(&end);
-        double seconds = difftime(end, start);
+        // time(&end);
+        // double seconds = difftime(end, start);
 
-        // Exit if ESC pressed.
+        if (parser.get<int>("@detectionType") == 0) {
+
+            /* KLT OPTICAL FLOW */
+            out = KLT(colors, frame, frame_g, frame_before_g, mask, p0, p1, parser.get<int>("@windowSize"), parser.get<int>("@maxLevel"));
+
+            // putText(klt, format("Time: %1.1fs", seconds), Point(50, 20), FONT_HERSHEY_SIMPLEX, 0.5, Scalar(50, 170, 50), 1);
+            putText(out, format("numPts: %d", parser.get<int>("@numPts")), Point(20, 20), FONT_HERSHEY_SIMPLEX, 0.5, Scalar(50, 170, 50), 1);
+            putText(out, format("cornerQuality: %1.2f", parser.get<float>("@cornerQuality")), Point(20, 40), FONT_HERSHEY_SIMPLEX, 0.5, Scalar(50, 170, 50), 1);
+            putText(out, format("minDist: %dpx", parser.get<int>("@minDist")), Point(20, 60), FONT_HERSHEY_SIMPLEX, 0.5, Scalar(50, 170, 50), 1);
+            putText(out, format("windowSize: %d", parser.get<int>("@windowSize")), Point(20, 80), FONT_HERSHEY_SIMPLEX, 0.5, Scalar(50, 170, 50), 1);
+            putText(out, format("maxLevel: %d", parser.get<int>("@maxLevel")), Point(20, 100), FONT_HERSHEY_SIMPLEX, 0.5, Scalar(50, 170, 50), 1);
+            // Display frames
+            imshow("Optical flow", out);
+        }
+        else if (parser.get<int>("@detectionType") == 1) {
+            /* DENSE OPTICAL FLOW */
+            out = DOF(frame_g, frame_before_g, parser.get<float>("@scale"), parser.get<int>("@windowSize"), parser.get<int>("@maxLevel"), parser.get<int>("@iterations"));
+
+            putText(out, format("scale: %1.1f", parser.get<float>("@scale")), Point(20, 20), FONT_HERSHEY_SIMPLEX, 0.5, Scalar(50, 170, 50), 1);
+            putText(out, format("windowSize: %d", parser.get<int>("@windowSize")), Point(20, 40), FONT_HERSHEY_SIMPLEX, 0.5, Scalar(50, 170, 50), 1);
+            putText(out, format("maxLevel: %d", parser.get<int>("@maxLevel")), Point(20, 60), FONT_HERSHEY_SIMPLEX, 0.5, Scalar(50, 170, 50), 1);
+            putText(out, format("iterations: %d", parser.get<int>("@iterations")), Point(20, 80), FONT_HERSHEY_SIMPLEX, 0.5, Scalar(50, 170, 50), 1);
+            // // Display frames
+            imshow("Dense optical flow", out);
+        }
+
+        // EWxit on ESC
         int k = waitKey(speed);
         if (k == 27) {
             break;
         }
+        if (k == 's') {
+            imwrite(videoName + "_s.png", out);
+            break;
+        }
 
-        // Now update the previous frame and previous points
+        // Update the frame
         frame_before_g = frame_g.clone();
     }
 
