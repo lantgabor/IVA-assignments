@@ -124,25 +124,27 @@ int main(int argc, char const* argv[])
     capture >> frame_before;
     cvtColor(frame_before, frame_before_g, COLOR_BGR2GRAY);
 
-    /*  Shi-Tomasi Corner Detector 
+    vector<Point2f> p0, p1;
+    if (parser.get<int>("@detectionType") == 0) {
+
+        /*  Shi-Tomasi Corner Detector 
         https://medium.com/pixel-wise/detect-those-corners-aba0f034078b
 
         Similar to Harris Corner Detector
         1, Weighted sum multiplied by the intensity difference for all pixels in a window,
         using Taylor Series expansion we can obtain E(u,v).
         2, Scoring func:  R = min(lambda_1, lambda_2)
-    */
-    vector<Point2f> p0, p1;
-    goodFeaturesToTrack(frame_before_g,
-        p0,
-        parser.get<int>("@numPts") /* N strongest corners in the image */,
-        parser.get<float>("@cornerQuality") /* minimum quality of corner below which everyone is rejected */,
-        parser.get<int>("@minDist") /* minimum euclidean distance between corners */,
-        Mat() /* Output, vector of conrer qualities */,
-        7 /* Size of an average block for computing a derivative covariation matrix over each
-pixel neighborhood */,
-        false,
-        0.04);
+        */
+        goodFeaturesToTrack(frame_before_g,
+            p0,
+            parser.get<int>("@numPts") /* N strongest corners in the image */,
+            parser.get<float>("@cornerQuality") /* minimum quality of corner below which everyone is rejected */,
+            parser.get<int>("@minDist") /* minimum euclidean distance between corners */,
+            Mat() /* Output, vector of conrer qualities */,
+            7 /* Size of an average block for computing a derivative covariation matrix over each pixel neighborhood */,
+            false,
+            0.04);
+    }
 
     // Crate mask to draw points on
     Mat mask = Mat::zeros(frame_before.size(), frame_before.type());
